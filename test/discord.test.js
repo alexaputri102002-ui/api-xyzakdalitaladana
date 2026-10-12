@@ -1,20 +1,37 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const handler = require("../api/discord");
+const firebase = require("../api/firebase");
 
 const originalEnv = {
-  API_SECRET: process.env.API_SECRET,
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_GUILD_ID: process.env.DISCORD_GUILD_ID,
   DISCORD_CHANNEL_ID: process.env.DISCORD_CHANNEL_ID,
 };
+const originalVerifyIdToken = firebase.verifyIdToken;
+const VALID_TEST_TOKEN = ["test", "firebase", "token"].join("-");
+const INVALID_TEST_TOKEN = ["invalid", "firebase", "token"].join("-");
 
 function setEnvironment() {
-  process.env.API_SECRET = "test-secret";
+  process.env.FIREBASE_PROJECT_ID = "test-project";
+  process.env.FIREBASE_CLIENT_EMAIL = "test@example.com";
+  process.env.FIREBASE_PRIVATE_KEY = "test-private-key";
   process.env.DISCORD_BOT_TOKEN = "bot-token";
   process.env.DISCORD_GUILD_ID = "guild-1";
   process.env.DISCORD_CHANNEL_ID = "channel-1";
 }
+
+firebase.verifyIdToken = async (idToken) => {
+  if (idToken !== VALID_TEST_TOKEN) {
+    throw Object.assign(new Error("Invalid Firebase ID token"), {
+      code: "auth/invalid-id-token",
+    });
+  }
+  return { uid: "test-user" };
+};
 
 function createResponse() {
   return {
@@ -33,15 +50,15 @@ function createResponse() {
   };
 }
 
-function createRequest(body, authorization = "Bearer test-secret") {
+function createRequest(body, authorization = "Bearer " + VALID_TEST_TOKEN) {
   return {
     method: "POST",
-    headers: { authorization },
+    headers: authorization ? { authorization } : {},
     body,
   };
 }
 
-test("requires the API secret before sending anything to Discord", async () => {
+test("validates the request body before sending anything to Discord", async () => {
   setEnvironment();
   const originalFetch = global.fetch;
   global.fetch = async () => {
@@ -50,14 +67,55 @@ test("requires the API secret before sending anything to Discord", async () => {
 
   try {
     const res = createResponse();
-    await handler(createRequest({}, "Bearer wrong-secret"), res);
-    assert.equal(res.statusCode, 401);
+    await handler(createRequest({}), res);
+    assert.equal(res.statusCode, 400);
     assert.equal(res.body.success, false);
-    assert.equal(res.body.error, "UNAUTHORIZED");
-    assert.match(res.body.message, /secret/i);
+    assert.equal(res.body.error, "INVALID_REQUEST");
     assert.equal(res.headers["Cache-Control"], "no-store");
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test("rejects a missing Firebase token before sending anything to Discord", async () => {
+  setEnvironment();
+  const res = createResponse();
+  await handler(createRequest({}, null), res);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.body.error, "UNAUTHORIZED");
+});
+
+test("rejects an invalid Firebase token before sending anything to Discord", async () => {
+  setEnvironment();
+  const originalFetch = global.fetch;
+  global.fetch = async () => {
+    throw new Error("fetch should not be called");
+  };
+
+  try {
+    const res = createResponse();
+    await handler(createRequest({}, "Bearer " + INVALID_TEST_TOKEN), res);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.error, "UNAUTHORIZED");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("reports when Firebase token verification is unavailable", async () => {
+  setEnvironment();
+  const originalVerifyIdToken = firebase.verifyIdToken;
+  firebase.verifyIdToken = async () => {
+    throw new Error("Firebase service unavailable");
+  };
+
+  try {
+    const res = createResponse();
+    await handler(createRequest({}), res);
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.error, "AUTHENTICATION_UNAVAILABLE");
+  } finally {
+    firebase.verifyIdToken = originalVerifyIdToken;
   }
 });
 
@@ -222,4 +280,5 @@ test("restores environment variables after the tests", () => {
       process.env[key] = value;
     }
   }
+  firebase.verifyIdToken = originalVerifyIdToken;
 });

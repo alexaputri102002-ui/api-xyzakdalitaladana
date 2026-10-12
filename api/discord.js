@@ -1,4 +1,4 @@
-const { timingSafeEqual } = require("node:crypto");
+const firebase = require("./firebase");
 
 const FIELD_DEFINITIONS = [
   ["id_unik_dc", "ID UNIK DC"],
@@ -23,18 +23,14 @@ function sendError(res, status, error, message, details = {}) {
   });
 }
 
-function hasValidApiKey(req, expectedKey) {
+function getBearerToken(req) {
   const authorization = req.headers.authorization;
   if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
-    return false;
+    return null;
   }
 
-  const providedKey = Buffer.from(authorization.slice(7));
-  const configuredKey = Buffer.from(expectedKey);
-  return (
-    providedKey.length === configuredKey.length &&
-    timingSafeEqual(providedKey, configuredKey)
-  );
+  const token = authorization.slice(7).trim();
+  return token || null;
 }
 
 function getValidatedFields(body) {
@@ -60,9 +56,22 @@ module.exports = async function handler(req, res) {
     return sendError(res, 405, "METHOD_NOT_ALLOWED", "Gunakan method POST.");
   }
 
-  const { API_SECRET, DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_CHANNEL_ID } =
-    process.env;
-  if (!API_SECRET || !DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !DISCORD_CHANNEL_ID) {
+  const {
+    FIREBASE_PROJECT_ID,
+    FIREBASE_CLIENT_EMAIL,
+    FIREBASE_PRIVATE_KEY,
+    DISCORD_BOT_TOKEN,
+    DISCORD_GUILD_ID,
+    DISCORD_CHANNEL_ID,
+  } = process.env;
+  if (
+    !FIREBASE_PROJECT_ID ||
+    !FIREBASE_CLIENT_EMAIL ||
+    !FIREBASE_PRIVATE_KEY ||
+    !DISCORD_BOT_TOKEN ||
+    !DISCORD_GUILD_ID ||
+    !DISCORD_CHANNEL_ID
+  ) {
     return sendError(
       res,
       500,
@@ -71,8 +80,23 @@ module.exports = async function handler(req, res) {
     );
   }
 
-  if (!hasValidApiKey(req, API_SECRET)) {
-    return sendError(res, 401, "UNAUTHORIZED", "API secret tidak ada atau salah.");
+  const idToken = getBearerToken(req);
+  if (!idToken) {
+    return sendError(res, 401, "UNAUTHORIZED", "Firebase ID token tidak ada atau tidak valid.");
+  }
+
+  try {
+    await firebase.verifyIdToken(idToken);
+  } catch (error) {
+    if (firebase.isInvalidIdTokenError(error)) {
+      return sendError(res, 401, "UNAUTHORIZED", "Firebase ID token tidak ada atau tidak valid.");
+    }
+    return sendError(
+      res,
+      503,
+      "AUTHENTICATION_UNAVAILABLE",
+      "Layanan autentikasi sementara tidak tersedia. Coba lagi nanti.",
+    );
   }
 
   const fields = getValidatedFields(req.body);
