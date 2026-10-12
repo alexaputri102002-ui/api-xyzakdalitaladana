@@ -6,6 +6,7 @@ const FIELD_DEFINITIONS = [
   ["nama_ucp", "Nama UCP"],
   ["android_id", "android_id"],
   ["id_daftar_unik", "ID_DAFTAR_UNIK"],
+  ["status", "Status"],
 ];
 
 function sendJson(res, status, body) {
@@ -40,7 +41,11 @@ function getValidatedFields(body) {
 
   const fields = [];
   for (const [key, label] of FIELD_DEFINITIONS) {
-    const value = body[key];
+    const value = key === "status" ? "pending" : body[key];
+    if (key === "status") {
+      fields.push({ name: label, value, inline: false });
+      continue;
+    }
     if (typeof value !== "string" || !value.trim() || value.trim().length > 1024) {
       return null;
     }

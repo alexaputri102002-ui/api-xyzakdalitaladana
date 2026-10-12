@@ -184,7 +184,7 @@ test("verifies the server and sends all fields to the configured channel", async
     const sentBody = JSON.parse(requests[1].options.body);
     assert.deepEqual(
       sentBody.embeds[0].fields.map((field) => field.value),
-      ["123", "ABC", "tester", "android-1", "signup-1"],
+      ["123", "ABC", "tester", "android-1", "signup-1", "pending"],
     );
     assert.deepEqual(sentBody.allowed_mentions, { parse: [] });
   } finally {
