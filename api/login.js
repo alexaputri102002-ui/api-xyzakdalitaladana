@@ -58,7 +58,9 @@ function getFieldValues(embed) {
     if (typeof field.value !== "string") continue;
 
     if (["idunikdc", "idunik"].includes(label)) values.set("id", field.value.trim());
-    if (["namaucp", "nameucp"].includes(label)) values.set("name", field.value.trim());
+    if (["namaucp", "nameucp", "iddiscord"].includes(label)) {
+      values.set("name", field.value.trim());
+    }
     if (["androidid", "iddevice", "deviceid"].includes(label)) {
       values.set("deviceId", field.value.trim());
     }

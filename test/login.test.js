@@ -56,10 +56,10 @@ function createMessage(status = "approved", id = "123", name = "tester", deviceI
     id: "message-1",
     embeds: [{
       fields: [
-        { name: "ID UNIK DC", value: id },
-        { name: "Nama UCP", value: name },
-        { name: "android_id", value: deviceId },
-        { name: "Status", value: status },
+        { name: "ID UNIK", value: id },
+        { name: "ID DISCORD", value: name },
+        { name: "ID DEVICE", value: deviceId },
+        { name: "STATUS", value: status },
       ],
     }],
   };

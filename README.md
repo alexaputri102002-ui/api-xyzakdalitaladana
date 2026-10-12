@@ -99,9 +99,11 @@ request to `/api/login` with the Firebase ID token as a bearer token and
 }
 ```
 
-The endpoint checks the ID, UCP name (case-insensitive), Android ID, and account
-status in the channel configured by `DISCORD_LOGIN_CHANNEL_ID`. All three request
-values must be non-empty strings of at most 1024 characters. On success:
+The endpoint checks the ID, the submitted name (case-insensitive), Android ID, and
+account status in the channel configured by `DISCORD_LOGIN_CHANNEL_ID`. It reads
+the submitted name from the `ID DISCORD` field in the account embed; `ID UNIK`,
+`ID DEVICE`, and `STATUS` provide the other values. All three request values must
+be non-empty strings of at most 1024 characters. On success:
 
 ```json
 {
