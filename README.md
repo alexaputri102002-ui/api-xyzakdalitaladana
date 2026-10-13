@@ -122,6 +122,13 @@ it may require multiple Discord requests when the channel contains more than 100
 messages. Older registration embeds without a `Status` field are treated as
 inactive until an administrator adds and updates that field.
 
+Each request to `/api/login` also writes a JSON access event to the serverless
+function's runtime logs. In Vercel, open the project **Logs** view and filter for
+`login_access`; the event includes the timestamp, HTTP method, response status, and
+outcome code. It deliberately excludes request bodies, credentials, tokens, and IP
+addresses. Runtime logs are managed by Vercel and may have retention limits; they
+are not a persistent log file stored by this API.
+
 ## Local tests
 
 ```sh

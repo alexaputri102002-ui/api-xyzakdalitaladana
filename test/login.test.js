@@ -202,6 +202,38 @@ test("allows POST only", async () => {
   assert.equal(res.body.error, "METHOD_NOT_ALLOWED");
 });
 
+test("logs sanitized login access metadata", async () => {
+  setEnvironment();
+  const originalConsoleInfo = console.info;
+  const logLines = [];
+  console.info = (line) => logLines.push(line);
+
+  try {
+    const res = createResponse();
+    await handler({
+      method: "POST",
+      url: "/api/login?private=query-secret",
+      headers: { authorization: `Bearer ${VALID_TOKEN}` },
+      body: {
+        id_unik_dc: "private-id",
+        nama_ucp: "private-name",
+      },
+    }, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(logLines.length, 1);
+    const entry = JSON.parse(logLines[0]);
+    assert.equal(entry.event, "login_access");
+    assert.equal(entry.method, "POST");
+    assert.equal(entry.path, "/api/login");
+    assert.equal(entry.status, 400);
+    assert.equal(entry.outcome, "INVALID_REQUEST");
+    assert.doesNotMatch(logLines[0], /private|query-secret|valid-firebase-token/);
+  } finally {
+    console.info = originalConsoleInfo;
+  }
+});
+
 test("restores environment variables and mocks after tests", () => {
   for (const [key, value] of Object.entries(originalEnv)) {
     if (value === undefined) {

@@ -122,7 +122,7 @@ async function fetchChannelMessages(headers) {
   return { messages };
 }
 
-module.exports = async function handler(req, res) {
+async function loginHandler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendError(res, 405, "METHOD_NOT_ALLOWED", "Gunakan method POST.");
@@ -256,5 +256,34 @@ module.exports = async function handler(req, res) {
       "DISCORD_CONNECTION_FAILED",
       "Gagal terhubung ke Discord. Coba lagi beberapa saat.",
     );
+  }
+}
+
+module.exports = async function handler(req, res) {
+  let outcome = "NO_RESPONSE";
+  const originalJson = res.json;
+  res.json = function logResponse(body) {
+    if (body && body.success === true) {
+      outcome = "SUCCESS";
+    } else if (body && typeof body.error === "string") {
+      outcome = body.error;
+    }
+    return originalJson.call(this, body);
+  };
+
+  try {
+    return await loginHandler(req, res);
+  } catch (error) {
+    outcome = "UNHANDLED_ERROR";
+    throw error;
+  } finally {
+    console.info(JSON.stringify({
+      event: "login_access",
+      timestamp: new Date().toISOString(),
+      method: req.method || "UNKNOWN",
+      path: "/api/login",
+      status: res.statusCode || null,
+      outcome,
+    }));
   }
 };
