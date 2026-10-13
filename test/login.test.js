@@ -111,6 +111,24 @@ test("logs in when unique ID, UCP name, device, and active status match", async 
   assert.match(requests[1].url, /limit=100/);
 });
 
+test("prefers the explicit UCP name over a Discord ID field", async () => {
+  setEnvironment();
+  const message = createMessage();
+  message.embeds[0].fields.splice(1, 0, { name: "Nama UCP", value: "tester" });
+  message.embeds[0].fields.find((field) => field.name === "ID DISCORD").value = "discord-user";
+  installDiscordMock([[message]]);
+  const res = createResponse();
+
+  await handler(createRequest({
+    id_unik_dc: "123",
+    nama_ucp: "Tester",
+    android_id: "android-1",
+  }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+});
+
 test("paginates the channel history to find older registrations", async () => {
   setEnvironment();
   const oldMessages = Array.from({ length: 100 }, (_, index) => ({

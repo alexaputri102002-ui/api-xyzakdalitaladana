@@ -53,19 +53,22 @@ function normalizeFieldName(value) {
 
 function getFieldValues(embed) {
   const values = new Map();
+  let ucpName;
+  let legacyName;
   for (const field of embed.fields || []) {
     const label = normalizeFieldName(field.name);
     if (typeof field.value !== "string") continue;
 
     if (["idunikdc", "idunik"].includes(label)) values.set("id", field.value.trim());
-    if (["namaucp", "nameucp", "iddiscord"].includes(label)) {
-      values.set("name", field.value.trim());
-    }
+    if (["namaucp", "nameucp"].includes(label)) ucpName = field.value.trim();
+    if (label === "iddiscord") legacyName = field.value.trim();
     if (["androidid", "iddevice", "deviceid"].includes(label)) {
       values.set("deviceId", field.value.trim());
     }
     if (label === "status") values.set("status", field.value.trim());
   }
+  const name = ucpName || legacyName;
+  if (name) values.set("name", name);
   return values;
 }
 
