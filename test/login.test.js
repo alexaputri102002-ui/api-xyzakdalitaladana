@@ -178,6 +178,40 @@ test("reports which supplied credential did not match", async (t) => {
   }
 });
 
+test("logs only aggregate counts when no account ID matches", async () => {
+  setEnvironment();
+  installDiscordMock([[createMessage()]]);
+  const originalConsoleInfo = console.info;
+  const logs = [];
+  console.info = (message) => logs.push(message);
+
+  try {
+    const res = createResponse();
+    await handler(createRequest({
+      id_unik_dc: "private-id",
+      nama_ucp: "private-name",
+      android_id: "private-device",
+    }), res);
+
+    assert.equal(res.body.error, "ACCOUNT_NOT_FOUND");
+    const diagnosticLogs = logs
+      .map((message) => JSON.parse(message))
+      .filter((entry) => entry.event === "login_lookup_diagnostic");
+    assert.equal(diagnosticLogs.length, 1);
+    assert.deepEqual(diagnosticLogs[0], {
+      event: "login_lookup_diagnostic",
+      outcome: "ACCOUNT_NOT_FOUND",
+      fetched_messages: 1,
+      embeds_seen: 1,
+      account_records_parsed: 1,
+      id_matches: 0,
+    });
+    assert.doesNotMatch(JSON.stringify(diagnosticLogs), /private-id|private-name|private-device/);
+  } finally {
+    console.info = originalConsoleInfo;
+  }
+});
+
 test("rejects malformed credentials before contacting Discord", async () => {
   setEnvironment();
   global.fetch = async () => {

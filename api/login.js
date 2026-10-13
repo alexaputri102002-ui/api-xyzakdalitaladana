@@ -218,8 +218,21 @@ async function loginHandler(req, res) {
       );
     }
 
-    const matchingIds = getRecords(result.messages).filter((record) => record.id === credentials.id);
+    const records = getRecords(result.messages);
+    const matchingIds = records.filter((record) => record.id === credentials.id);
     if (matchingIds.length === 0) {
+      const embedsSeen = result.messages.reduce(
+        (count, message) => count + (Array.isArray(message.embeds) ? message.embeds.length : 0),
+        0,
+      );
+      console.info(JSON.stringify({
+        event: "login_lookup_diagnostic",
+        outcome: "ACCOUNT_NOT_FOUND",
+        fetched_messages: result.messages.length,
+        embeds_seen: embedsSeen,
+        account_records_parsed: records.length,
+        id_matches: matchingIds.length,
+      }));
       return sendError(res, 404, "ACCOUNT_NOT_FOUND", "ID unik tidak ditemukan.");
     }
 
